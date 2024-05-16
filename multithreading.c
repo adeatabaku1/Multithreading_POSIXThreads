@@ -1,101 +1,106 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <pthread.h>  //libraria per pthread
-#include <errno.h>   //libraria per errore
+#include <stdio.h>   // libraria standarde për input dhe output
+#include <stdlib.h>  // libraria standarde për funksione ndihmëse si konvertimet, menaxhimi i memories, etj.
+#include <unistd.h>  // libraria për funksione POSIX dhe manipulim të proceseve
+#include <sys/types.h>  // libraria për definime të tipave primitivë të përdorur nga system call-et
+#include <pthread.h>  // libraria për përdorimin e Pthreads (POSIX threads) për multithreading
+#include <errno.h>   // libraria për trajtimin e gabimeve
+#include <string.h>  // libraria për manipulimin e stringjeve
 
+// Makro për trajtimin e gabimeve. Në rast se një funksion kthen një gabim, do të shfaqë mesazhin e gabimit dhe do të dalë nga programi
 #define handle_error_en(en, msg) \
-               do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)  //definimi i error-it
+    do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
-int c = 0;  //variabla c e cila me poshte na sherben per numerim
-pthread_t thread_2_id;   //identifikimi i thread te dyte
+// Deklarimet globale
+int c = 0; // Variabla globale c e cila na sherben per numerim
+pthread_t thread_2_id; // Identifikuesi i thread-it te dyte
 
-void* thread_i_pare(void* p);   
-void* thread_i_dyte(void* p);   //thirrja e funksioneve
+// Prototipat e funksioneve
+void* thread_i_pare(void* p);
+void* thread_i_dyte(void* p);
 
-int main(int args, char *arg[]) {
-   
-   int th;
-   pthread_t t1, t2;      // deklarimi i thread-ave
-   pthread_attr_t attr;   ///deklaron atributet (madhesine e stack-ut dhe scheduling informacionet) e thread 
-   
-   if (args != 3){    //ne kete pjese kontrollojme numrin e argumenteve, perkatesisht nese numri i argumenteve te dhena nuk eshte 3, 
-				//atehere na paraqitet nje error me mesazh
-       fprintf(stderr,"Keni shkruar komanden gabim!\nSintaksa: a.out <numri i shkronjave per fjalen e gjeneruar> <kufiza per numrin e gjeneruar>\n");
-       return -1;      
+int main(int argc, char *argv[]) {
+    int th;
+    pthread_t t1, t2; // Deklarimi i thread-ave
+    pthread_attr_t attr; // Deklaron atributet (madhesine e stack-ut dhe scheduling informacionet) e thread 
+
+    // Kontrollimi i argumenteve
+    if (argc != 3) {
+        fprintf(stderr, "Keni shkruar komanden gabim!\nSintaksa: %s <numri i shkronjave per fjalen e gjeneruar> <kufiza per numrin e gjeneruar>\n", argv[0]);
+        return -1;
     }
 
-   if (atoi(arg[1]) < 0||atoi(arg[2])<0){  //ne kete pjese kontrollojme a jane argumentet e dhena pozitive apo jo,
-   						// nese njeri argument apo te dy argumentet jane negative, na paraqitet nje error   
-        fprintf(stderr,"%d ose %d duhet te jete >= 0\n", atoi(arg[1]),atoi(arg[2]));
-         return -1;
-    } 
-    
-   th=pthread_attr_init(&attr);   // marrja e atributeve te thread-it
-   
-   if (th != 0)
-        handle_error_en(th, "pthread_attr_init");  //nese funksioni i mesiperm nuk funksionon, atehere paraqitet nje error
-        
-   //krijimi i dy thread-ave 
-   th=pthread_create(&t1, &attr, thread_i_pare, arg[1]);
-   th=pthread_create(&t2, &attr, thread_i_dyte, arg[2]);
-   
-   if (th != 0)
-        handle_error_en(th, "pthread_create");  //nese funksioni i mesiperm nuk funksionon, atehere paraqitet nje error
-   th=pthread_attr_destroy(&attr);  //shkatërrimi i objektit të atributeve të thread-ave
-   if (th != 0)
-        handle_error_en(th, "pthread_attr_destroy");  //nese funksioni i mesiperm nuk funksionon, atehere paraqitet nje error
-               
-   //prit derisa te kompletohen thread-at
-   th=pthread_join(t1, NULL);
-   th=pthread_join(t2, NULL);
-   
-   if (th != 0)
-        handle_error_en(th, "pthread_join"); //nese funksioni i mesiperm nuk funksionon, atehere paraqitet nje error
-   
-   printf("\nPerfundimi i programit\n");
+    // Kontrollimi i vlefshmërisë së argumenteve
+    if (atoi(argv[1]) < 0 || atoi(argv[2]) < 0) {
+        fprintf(stderr, "%d ose %d duhet te jete >= 0\n", atoi(argv[1]), atoi(argv[2]));
+        return -1;
+    }
+
+    // Inicimi i atributeve të thread-it
+    th = pthread_attr_init(&attr);
+    if (th != 0)
+        handle_error_en(th, "pthread_attr_init");
+
+    // Krijimi i thread-ave
+    th = pthread_create(&t1, &attr, thread_i_pare, argv[1]);
+    if (th != 0)
+        handle_error_en(th, "pthread_create t1");
+
+    th = pthread_create(&t2, &attr, thread_i_dyte, argv[2]);
+    if (th != 0)
+        handle_error_en(th, "pthread_create t2");
+
+    // Shkatërrimi i atributeve të thread-it
+    th = pthread_attr_destroy(&attr);
+    if (th != 0)
+        handle_error_en(th, "pthread_attr_destroy");
+
+    // Pritja për përfundimin e thread-ave
+    th = pthread_join(t1, NULL);
+    if (th != 0)
+        handle_error_en(th, "pthread_join t1");
+
+    th = pthread_join(t2, NULL);
+    if (th != 0)
+        handle_error_en(th, "pthread_join t2");
+
+    printf("\nPerfundimi i programit\n");
+    return 0;
 }
 
+// Funksioni për thread-in e parë
 void* thread_i_pare(void* p) {
+    while (1) {
+        printf("\nFillo gjenerimin e fjales...\n");
 
-   while (1) {
-      
-      printf("\nFillo gjenerimin e fjales...\n"); 
-      
-      int i, n = atoi(p);  //konvertimi i stringut ne integer
-      static const char alfabeti[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";  //deklarimi i nje char array me shkronja te alfabetit
-      char res[n]; // variabla ku shtohen shkronjat te marra ne menyre te rastesishme per te krijuar fjalen 
-      
-      if(n>0){ //nese numri i dhene i shkronjave ne terminal eshte me i madh se 0, fillon gjenerimi i fjales
-      
-      for (int i = 0; i < n; i++)  
-        res[i] = alfabeti[rand() % (sizeof(alfabeti) - 1)];  //zgjedh shkronjat ne menyre te rastesishme
-      
-      }
-      
-      printf("Fjala e gjeneruar: %s\n",res);
-      sleep(1); // prit 1 sekonde
-      c++;
-      
-      if (c == 5) {
-         //pasi c te behet 5 kerkohet anulimi i thread-it te dyte dhe del nga thread-i i tanishem
-         pthread_cancel(thread_2_id);
-         pthread_exit(NULL);
-      
-      }
-   }
+        int n = atoi((char*)p); // Konvertimi i stringut në integer
+        static const char alfabeti[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"; // Deklarimi i nje char array me shkronja te alfabetit
+        char res[n + 1]; // Variabla ku shtohen shkronjat te marra ne menyre te rastesishme per te krijuar fjalen 
+
+        if (n > 0) { // Nese numri i dhene i shkronjave ne terminal eshte me i madh se 0, fillon gjenerimi i fjales
+            for (int i = 0; i < n; i++)
+                res[i] = alfabeti[rand() % (sizeof(alfabeti) - 1)]; // Zgjedh shkronjat ne menyre te rastesishme
+            res[n] = '\0'; // Shto karakterin e përfundimit të stringut
+        }
+
+        printf("Fjala e gjeneruar: %s\n", res);
+        sleep(1); // Prit 1 sekonde
+        c++;
+
+        if (c == 5) { // Pasi c te behet 5 kerkohet anulimi i thread-it te dyte dhe del nga thread-i i tanishem
+            pthread_cancel(thread_2_id);
+            pthread_exit(NULL);
+        }
+    }
 }
 
+// Funksioni për thread-in e dytë
 void* thread_i_dyte(void* p) {
+    thread_2_id = pthread_self(); // Ruaje ID e thread-it te dyte
 
-   thread_2_id = pthread_self(); //ruaje id e thread-it te dyte
-   
-   while (1) {
-   
-      printf("\nFillo gjenerimin e numrit...\n"); 
-      int m = atoi(p);  //konvertimi i stringut ne integer
-      printf("Numri i gjeneruar: %d\n", rand() % m); // gjenerimi i numrit te rastesishem
-      sleep(2); // prit 2 sekonda
-   } 
+    while (1) {
+        printf("\nFillo gjenerimin e numrit...\n");
+        int m = atoi((char*)p); // Konvertimi i stringut ne integer
+        printf("Numri i gjeneruar: %d\n", rand() % m); // Gjenerimi i numrit te rastesishem
+        sleep(2); // Prit 2 sekonda
+    }
 }
